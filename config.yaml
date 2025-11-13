@@ -1,0 +1,11 @@
+# 应用配置文件
+server:
+  port: 8081
+  host: "localhost"
+
+mysql:
+  host: "localhost"
+  port: 3306
+  user: "an"
+  password: "ay1797127235"
+  db: blog
