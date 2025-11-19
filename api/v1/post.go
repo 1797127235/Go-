@@ -128,6 +128,42 @@ func UpdatePost(c *gin.Context) {
 		return
 	}
 
+	// 从上下文中获取当前登录用户ID
+	uidVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not logged in"})
+		return
+	}
+	uid, ok := uidVal.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user id in context"})
+		return
+	}
+
+	// 获取文章信息
+	post, err := service.GetPostByID(uint(id))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 获取当前用户信息，判断是否为管理员
+	user, err := service.GetUserByID(uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 只有作者本人或管理员(Role==1)可以更新
+	if post.AuthorID != uid && user.Role != 1 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "no permission to update this post"})
+		return
+	}
+
 	update := model.Post{
 		Title:      req.Title,
 		Content:    req.Content,
@@ -152,6 +188,42 @@ func DeletePost(c *gin.Context) {
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	// 从上下文中获取当前登录用户ID
+	uidVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not logged in"})
+		return
+	}
+	uid, ok := uidVal.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user id in context"})
+		return
+	}
+
+	// 获取文章信息
+	post, err := service.GetPostByID(uint(id))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 获取当前用户信息，判断是否为管理员
+	user, err := service.GetUserByID(uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 只有作者本人或管理员(Role==1)可以删除
+	if post.AuthorID != uid && user.Role != 1 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "no permission to delete this post"})
 		return
 	}
 

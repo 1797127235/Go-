@@ -18,6 +18,28 @@ type CategoryRequest struct {
 
 // 创建分类
 func CreateCategory(c *gin.Context) {
+	// 从上下文获取当前用户，检查是否为管理员
+	uidVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not logged in"})
+		return
+	}
+	uid, ok := uidVal.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user id in context"})
+		return
+	}
+
+	user, err := service.GetUserByID(uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if user.Role != 1 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "no permission to create category"})
+		return
+	}
+
 	var req CategoryRequest
 	// 分类的反序列化
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -76,6 +98,28 @@ func DeleteCategory(c *gin.Context) {
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	// 从上下文获取当前用户，检查是否为管理员
+	uidVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not logged in"})
+		return
+	}
+	uid, ok := uidVal.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user id in context"})
+		return
+	}
+
+	user, err := service.GetUserByID(uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if user.Role != 1 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "no permission to delete category"})
 		return
 	}
 

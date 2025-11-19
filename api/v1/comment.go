@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type CommentRequest struct {
@@ -32,7 +33,7 @@ func CreateComment(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not logged in"})
 		return
 	}
-	
+
 	/*
 		类型断言
 		从中间件取出来的东西是interface{}类型，需要断言成uint类型
@@ -85,4 +86,63 @@ func ListComments(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"list": comments})
+}
+
+// 删除评论（评论作者或管理员）
+func DeleteComment(c *gin.Context) {
+	// 获取评论ID
+	idStr := c.Param("id")
+	commentID, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid comment id"})
+		return
+	}
+
+	// 从上下文中获取当前登录用户ID
+	uidVal, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not logged in"})
+		return
+	}
+	uid, ok := uidVal.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user id in context"})
+		return
+	}
+
+	// 获取评论信息
+	comment, err := service.GetCommentByID(uint(commentID))
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "comment not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 获取当前用户信息，判断是否为管理员
+	user, err := service.GetUserByID(uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 只有评论作者或管理员可以删除
+	if comment.UserID != uid && user.Role != 1 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "no permission to delete this comment"})
+		return
+	}
+
+	// 删除评论
+	if err := service.DeleteComment(uint(commentID)); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "comment not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "delete comment success"})
 }
