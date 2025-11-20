@@ -24,7 +24,7 @@ func CreateUser(username, password string) error {
 	}
 
 	u := model.User{
-		Role: 1,
+		Role: 0,
 		Username: username,
 		Password: string(hash),
 		Avatar: "http://localhost:8080/images/pic.png",
